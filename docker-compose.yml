@@ -1,0 +1,60 @@
+services:
+  # ----------------- APP ----------------- #
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend/app:/app
+      - /tmp:/tmp
+    env_file:
+      - ./backend/app/.env
+    depends_on:
+      - rabbitmq
+      - redis
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+
+  # ----------------- TASK & MESSAGE QUEUE ----------------- #
+  celery_worker:
+    build:
+      context: ./backend
+    command: celery -A itinery_stack.task_queue.tasks.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - backend/app/.env
+    volumes:
+      - ./backend/app:/app
+      - /tmp:/tmp
+    depends_on:
+      - redis
+      - rabbitmq
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  # ----------------- Database ----------------- #
+  mongodb:
+    image: mongo:6
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
